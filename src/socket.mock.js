@@ -81,7 +81,23 @@ const socket = {
             handlers["newQuestion"](questions[currentQuestionIndex]);
           }
         } else {
-          console.log("No more questions!");
+          console.log("No more questions! Quiz complete.");
+          // Emit quiz completion with mock leaderboard
+          if (handlers["quiz_complete"]) {
+            // Mock leaderboard data
+            const mockLeaderboard = [
+              { id: 1, name: "You", score: 4, accuracy: 80 },
+              { id: 2, name: "Player 2", score: 3, accuracy: 60 },
+              { id: 3, name: "Player 3", score: 5, accuracy: 100 },
+              { id: 4, name: "Player 4", score: 2, accuracy: 40 },
+            ].sort((a, b) => b.score - a.score); // Sort by score descending
+            
+            handlers["quiz_complete"]({
+              leaderboard: mockLeaderboard,
+              totalQuestions: questions.length,
+              userScore: 4, // Mock user score
+            });
+          }
         }
       }, 3000);
     }

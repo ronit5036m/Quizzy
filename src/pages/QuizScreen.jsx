@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 // Use mock for testing
 import socket from "../socket.mock";
 import { useTheme } from "../theme/Theme"; // Adjust path if Theme.jsx is elsewhere
+import { useQuizStore } from "../stores/useQuizStore";
 
 const QuizScreen = () => {
   const { roomCode } = useParams();
+  const navigate = useNavigate();
   const theme = useTheme();
+  const { addUserAnswer, setUserScore, setResults } = useQuizStore();
 
   // QUESTION / ANSWERS
   const [question, setQuestion] = useState("");
@@ -14,6 +17,7 @@ const QuizScreen = () => {
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [correctAnswer, setCorrectAnswer] = useState(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
   // TIMING (accurate)
   const [timeLeft, setTimeLeft] = useState(0);
@@ -39,6 +43,9 @@ const QuizScreen = () => {
       setCorrectAnswer(null);
       setIsSubmitted(false);
       setIsLocked(false);
+      
+      // Track question index
+      setCurrentQuestionIndex((prev) => prev + 1);
 
       // Start timer for the question
       startTimeRef.current = Date.now();
@@ -63,18 +70,48 @@ const QuizScreen = () => {
     socket.on("answerResult", (data) => {
       // Display the result sent by backend (or mock)
       setCorrectAnswer(data.correctAnswer);
+      
+      // Track the answer in store
+      addUserAnswer({
+        question: question,
+        selectedAnswer: selectedAnswer,
+        correctAnswer: data.correctAnswer,
+        isCorrect: selectedAnswer === data.correctAnswer,
+      });
+    });
+
+    // Listen for quiz completion
+    socket.on("quiz_complete", (data) => {
+      // Store results and navigate to results page
+      if (data.leaderboard) {
+        setResults({
+          leaderboard: data.leaderboard,
+          totalQuestions: data.totalQuestions || currentQuestionIndex + 1,
+        });
+      }
+      // Calculate user score from answers
+      const score = data.userScore || data.leaderboard?.find(
+        (p) => p.name === data.userName || p.id === data.userId
+      )?.score || 0;
+      setUserScore(score);
+      
+      // Navigate to results page
+      setTimeout(() => {
+        navigate(`/results/${roomCode}`);
+      }, 1000);
     });
 
     return () => {
       // Clean up socket events and timers upon component unmount
       socket.off("newQuestion");
       socket.off("answerResult");
+      socket.off("quiz_complete");
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
     };
-  }, []);
+  }, [question, selectedAnswer, roomCode, navigate, addUserAnswer, setUserScore, setResults, currentQuestionIndex]);
 
   // Cleanup timers on component unmount
   useEffect(() => {
@@ -100,6 +137,8 @@ const QuizScreen = () => {
   useEffect(() => {
     if (correctAnswer && isSubmitted) {
       const timer = setTimeout(() => {
+        // Check if there are more questions (this would come from backend)
+        // For now, we'll let the backend handle quiz completion
         socket.emit("readyForNextQuestion");
       }, 2000); // Give user 2 seconds to see the result
 
