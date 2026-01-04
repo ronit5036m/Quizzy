@@ -27,7 +27,7 @@ const App = () => {
             <Route path="/lobby/:roomId" element={<Lobby />} />
             <Route path="/quiz/:roomCode" element={<QuizScreen />} />
             <Route path="/results/:roomCode" element={<Results />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
+            {/* <Route path="*" element={<Navigate to="/" replace />} /> */}
           </Routes>
         </MainLayout>
       </BrowserRouter>
